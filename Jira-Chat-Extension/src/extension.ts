@@ -84,6 +84,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   const participant = vscode.chat.createChatParticipant("jiraCopilot", handler);
   //participant.iconPath = vscode.Uri.joinPath(context.extensionUri, "jira-icon.png");
+  context.subscriptions.push(participant);
+
+  // ✅ Register the command here
+  context.subscriptions.push(
+    vscode.commands.registerCommand('jiraChat.start', () => {
+      vscode.window.showInformationMessage('Jira Chat Started!');
+    })
+  );
 }
 
 
