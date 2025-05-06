@@ -1,0 +1,65 @@
+{
+    "name": "jira-chat-extension",
+    "displayName": "Jira Chat Extension",
+    "description": "Chat-based Jira integration for VS Code",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.70.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onCommand:jiraChat.start"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "chatParticipants": [
+            {
+                "id": "jiraCopilot",
+                "fullName": "Jira Copilot",
+                "name": "jira",
+                "description": "Talk to Jira with natural commands.",
+                "isSticky": true
+            }
+        ],
+        "commands": [
+            {
+                "command": "jiraChat.start",
+                "title": "Jira: Start Chat"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Jira Chat Settings",
+            "properties": {
+                "jiraChat.domain": {
+                    "type": "string",
+                    "default": "https://giriprashanthsfdc.atlassian.net",
+                    "description": "Your Jira domain URL"
+                },
+                "jiraChat.email": {
+                    "type": "string",
+                    "default": ""
+                },
+                "jiraChat.apiToken": {
+                    "type": "string",
+                    "default": ""
+                }
+            }
+        }
+    },
+    "scripts": {
+        "compile": "tsc -p ."
+    },
+    "devDependencies": {
+        "@types/node": "^18.0.0",
+        "@types/node-fetch": "^2.6.12",
+        "@types/vscode": "^1.70.0",
+        "typescript": "^4.9.5"
+    },
+    "dependencies": {
+        "20": "^3.1.9",
+        "node-fetch": "^2.6.7"
+    }
+}
