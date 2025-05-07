@@ -1,3 +1,5 @@
+ create an aura component code to capture lead fields include the explanation as well by including the file path as per salesforce package.xml as below file path should be inside the code block // File: force-app/main/default/classes/WeightageProcessor.cls
+
 git remote add origin https://github.com/your-username/my-repo.git
 
 # Salesforce DX Project: Next Steps
