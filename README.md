@@ -1,3 +1,17 @@
+function extractRepoPath(gitUrl) {
+  const sshMatch = gitUrl.match(/^git@[^:]+:([^/]+\/[^/]+)\.git$/);
+  const httpsMatch = gitUrl.match(/^https:\/\/[^/]+\/([^/]+\/[^/]+)(\.git)?$/);
+
+  if (sshMatch) return sshMatch[1]; // e.g., my-org/my-repo
+  if (httpsMatch) return httpsMatch[1]; // e.g., my-org/my-repo
+  throw new Error("Unsupported Git URL format");
+}
+
+// Example usage:
+const url = "git@github.com:my-org/my-repo.git";
+const repoPath = extractRepoPath(url);
+console.log(repoPath); // ➜ "my-org/my-repo"
+
  create an aura component code to capture lead fields include the explanation as well by including the file path as per salesforce package.xml as below file path should be inside the code block // File: force-app/main/default/classes/WeightageProcessor.cls
 
 git remote add origin https://github.com/your-username/my-repo.git
