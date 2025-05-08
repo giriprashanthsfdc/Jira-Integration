@@ -216,3 +216,256 @@ export function formatUserContextMarkdown(ctx: JiraContext): string {
 - **Issue**: \`${ctx.issueKey || "Not set"}\`
 - **Sprint**: \`${ctx.sprint ?? "Not set"}\``;
 }
+
+-----
+
+// context.ts
+import * as vscode from "vscode";
+import {
+  jiraGetProject,
+  jiraGetIssue
+} from "./jiraintegration";
+
+export type JiraContext = {
+  issueKey?: string;
+  projectKey?: string;
+  sprint?: string | null;
+};
+
+const CONTEXT_KEY = "jiraContext";
+
+export function getUserContext(global: vscode.ExtensionContext): JiraContext {
+  return global.globalState.get<JiraContext>(CONTEXT_KEY) || {};
+}
+
+export async function updateUserContext(
+  global: vscode.ExtensionContext,
+  updates: Partial<JiraContext>,
+  domain: string,
+  email: string,
+  token: string,
+  stream: vscode.ChatResponseStream
+): Promise<boolean> {
+  const current = getUserContext(global);
+  const newContext = { ...current };
+
+  try {
+    if (updates.projectKey) {
+      await jiraGetProject(domain, email, token, updates.projectKey);
+      newContext.projectKey = updates.projectKey;
+    }
+
+    if (updates.issueKey) {
+      await jiraGetIssue(domain, email, token, updates.issueKey);
+      newContext.issueKey = updates.issueKey;
+    }
+
+    if (updates.sprint !== undefined) {
+      newContext.sprint = updates.sprint;
+    }
+
+    await global.globalState.update(CONTEXT_KEY, newContext);
+    return true;
+  } catch (error: any) {
+    stream.markdown(`❌ ${error.message}`);
+    return false;
+  }
+}
+
+export async function showContextDetails(
+  global: vscode.ExtensionContext,
+  domain: string,
+  email: string,
+  token: string,
+  stream: vscode.ChatResponseStream
+): Promise<void> {
+  const context = getUserContext(global);
+  if (!context.issueKey) {
+    stream.markdown("❗ No Jira issue is set. Use `set-context story <ISSUE-KEY>` first.");
+    return;
+  }
+
+  try {
+    const issue = await jiraGetIssue(domain, email, token, context.issueKey);
+    const summary = issue.fields.summary;
+    const status = issue.fields.status.name;
+    const description = issue.fields.description?.content?.[0]?.content?.[0]?.text || "_No description_";
+
+    stream.markdown(`### 🧾 ${issue.key}: ${summary}
+
+**Status:** ${status}
+
+**Description:**
+${description}`);
+  } catch (err: any) {
+    stream.markdown(`❌ Failed to retrieve context issue: ${err.message}`);
+  }
+}
+
+export async function clearUserContext(global: vscode.ExtensionContext): Promise<void> {
+  await global.globalState.update(CONTEXT_KEY, {});
+}
+
+export function formatUserContextMarkdown(ctx: JiraContext): string {
+  return `### 📌 Current Context
+- **Project**: \`${ctx.projectKey || "Not set"}\`
+- **Issue**: \`${ctx.issueKey || "Not set"}\`
+- **Sprint**: \`${ctx.sprint ?? "Not set"}\``;
+}
+------- jira -- integration.ts
+// jiraintegration.ts
+import fetch from "node-fetch";
+
+export async function jiraRequest(
+  method: "GET" | "POST" | "PUT",
+  domain: string,
+  email: string,
+  token: string,
+  endpoint: string,
+  body?: any
+): Promise<any> {
+  const headers: Record<string, string> = {
+    Authorization: "Basic " + Buffer.from(`${email}:${token}`).toString("base64"),
+    Accept: "application/json",
+  };
+
+  if (method === "POST" || method === "PUT") {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(`${domain}${endpoint}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Jira API ${method} ${endpoint} failed: ${res.status} - ${errorText}`);
+  }
+
+  return await res.json();
+}
+
+export async function jiraGetProject(
+  domain: string,
+  email: string,
+  token: string,
+  projectKey: string
+) {
+  return await jiraRequest("GET", domain, email, token, `/rest/api/3/project/${projectKey}`);
+}
+
+export async function jiraGetIssue(
+  domain: string,
+  email: string,
+  token: string,
+  issueKey: string
+) {
+  return await jiraRequest("GET", domain, email, token, `/rest/api/3/issue/${issueKey}`);
+}
+
+export async function jiraUpdateIssueFields(
+  domain: string,
+  email: string,
+  token: string,
+  issueKey: string,
+  fields: Record<string, any>
+) {
+  return await jiraRequest("PUT", domain, email, token, `/rest/api/3/issue/${issueKey}`, {
+    fields,
+  });
+}
+
+export async function jiraAddComment(
+  domain: string,
+  email: string,
+  token: string,
+  issueKey: string,
+  comment: string
+) {
+  const body = {
+    body: {
+      type: "doc",
+      version: 1,
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: comment }],
+        },
+      ],
+    },
+  };
+
+  return await jiraRequest(
+    "POST",
+    domain,
+    email,
+    token,
+    `/rest/api/3/issue/${issueKey}/comment`,
+    body
+  );
+}
+
+export async function jiraCreateSubtask(
+  domain: string,
+  email: string,
+  token: string,
+  parentKey: string,
+  summary: string,
+  description?: string
+) {
+  const projectKey = parentKey.split("-")[0];
+  const fields: Record<string, any> = {
+    summary,
+    parent: { key: parentKey },
+    project: { key: projectKey },
+    issuetype: { name: "Sub-task" },
+  };
+
+  if (description) {
+    fields.description = {
+      type: "doc",
+      version: 1,
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: description }],
+        },
+      ],
+    };
+  }
+
+  return await jiraRequest("POST", domain, email, token, "/rest/api/3/issue", { fields });
+}
+
+export async function jiraCreateIssue(
+  domain: string,
+  email: string,
+  token: string,
+  projectKey: string,
+  issueType: string,
+  summary: string,
+  description?: string
+) {
+  const fields: Record<string, any> = {
+    summary,
+    issuetype: { name: issueType },
+    project: { key: projectKey },
+  };
+
+  if (description) {
+    fields.description = {
+      type: "doc",
+      version: 1,
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: description }],
+        },
+      ],
+    };
+  }
+
+  return await jiraRequest("POST", domain, email, token, "/rest/api/3/issue", { fields });
+}
