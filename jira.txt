@@ -262,3 +262,132 @@ export function formatUserContextMarkdown(ctx: JiraContext): string {
 - **Issue**: \`${ctx.issueKey || "Not set"}\`
 - **Sprint**: \`${ctx.sprint ?? "Not set"}\``;
 }
+----// context.ts
+import * as vscode from "vscode";
+import {
+  jiraGetProject,
+  jiraGetIssue
+} from "./jiraintegration";
+
+export type JiraContext = {
+  issueKey?: string;
+  projectKey?: string;
+  sprint?: string | null;
+};
+
+const CONTEXT_KEY = "jiraContext";
+
+export function getUserContext(global: vscode.ExtensionContext): JiraContext {
+  return global.globalState.get<JiraContext>(CONTEXT_KEY) || {};
+}
+
+export async function handleContextCommand(
+  action: string,
+  value: string,
+  global: vscode.ExtensionContext,
+  domain: string,
+  email: string,
+  token: string,
+  stream: vscode.ChatResponseStream
+): Promise<void> {
+  const upperValue = value.trim().toUpperCase();
+  const current = getUserContext(global);
+  const newContext = { ...current };
+
+  try {
+    switch (action.toLowerCase()) {
+      case "set-project":
+        await jiraGetProject(domain, email, token, upperValue);
+        newContext.projectKey = upperValue;
+        await global.globalState.update(CONTEXT_KEY, newContext);
+        stream.markdown(`✅ Project context set to \`${upperValue}\``);
+        break;
+
+      case "set-story":
+      case "set-defect":
+        await jiraGetIssue(domain, email, token, upperValue);
+        newContext.issueKey = upperValue;
+        await global.globalState.update(CONTEXT_KEY, newContext);
+        stream.markdown(`✅ Issue context set to \`${upperValue}\``);
+        break;
+
+      case "set-sprint":
+        newContext.sprint = upperValue;
+        await global.globalState.update(CONTEXT_KEY, newContext);
+        stream.markdown(`✅ Sprint context set to \`${upperValue}\``);
+        break;
+
+      case "set-backlog":
+        newContext.sprint = null;
+        await global.globalState.update(CONTEXT_KEY, newContext);
+        stream.markdown(`✅ Context set to backlog`);
+        break;
+
+      case "get-details": {
+        const issue = await jiraGetIssue(domain, email, token, upperValue);
+        const summary = issue.fields.summary;
+        const status = issue.fields.status.name;
+        const description = issue.fields.description?.content?.[0]?.content?.[0]?.text || "_No description_";
+
+        stream.markdown(`### 🧾 ${issue.key}: ${summary}
+
+**Status:** ${status}
+
+**Description:**
+${description}`);
+        break;
+      }
+
+      case "clear-details":
+        await global.globalState.update(CONTEXT_KEY, {});
+        stream.markdown("🧹 Cleared all context details.");
+        break;
+
+      default:
+        stream.markdown("❗ Unknown context command. Usage: `context set-story <ISSUE-KEY>`");
+    }
+  } catch (error: any) {
+    stream.markdown(`❌ ${error.message}`);
+  }
+}
+
+export async function showContextDetails(
+  global: vscode.ExtensionContext,
+  domain: string,
+  email: string,
+  token: string,
+  stream: vscode.ChatResponseStream
+): Promise<void> {
+  const context = getUserContext(global);
+  if (!context.issueKey) {
+    stream.markdown("❗ No Jira issue is set. Use `context set-story <ISSUE-KEY>` first.");
+    return;
+  }
+
+  try {
+    const issue = await jiraGetIssue(domain, email, token, context.issueKey);
+    const summary = issue.fields.summary;
+    const status = issue.fields.status.name;
+    const description = issue.fields.description?.content?.[0]?.content?.[0]?.text || "_No description_";
+
+    stream.markdown(`### 🧾 ${issue.key}: ${summary}
+
+**Status:** ${status}
+
+**Description:**
+${description}`);
+  } catch (err: any) {
+    stream.markdown(`❌ Failed to retrieve context issue: ${err.message}`);
+  }
+}
+
+export async function clearUserContext(global: vscode.ExtensionContext): Promise<void> {
+  await global.globalState.update(CONTEXT_KEY, {});
+}
+
+export function formatUserContextMarkdown(ctx: JiraContext): string {
+  return `### 📌 Current Context
+- **Project**: \`${ctx.projectKey || "Not set"}\`
+- **Issue**: \`${ctx.issueKey || "Not set"}\`
+- **Sprint**: \`${ctx.sprint ?? "Not set"}\``;
+}
