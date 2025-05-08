@@ -1,20 +1,218 @@
-stream.markdown(`
-### 🤖 Jira Chat Assistant – Help Menu
+// extension.ts
+import * as vscode from "vscode";
+import fetch from "node-fetch";
+import * as path from "path";
+import * as fs from "fs";
+import {
+  getUserContext,
+  updateUserContext,
+  clearUserContext,
+  formatUserContextMarkdown,
+} from "./context";
 
-**🧭 Context Commands:**
-- \`set-context project <project-key>\` – Set current project (e.g., \`ABC\`)
-- \`set-context story <story-key>\` – Set current story (e.g., \`ABC-123\`)
-- \`set-context defect <defect-key>\` – Set current defect (e.g., \`ABC-456\`)
-- \`set-context sprint <sprint-name>\` – Set active sprint (e.g., \`Sprint 12\`)
-- \`set-context backlog\` – Use backlog as the target context
-- \`clear-context\` – Clear all current context
-- \`show-context\` – Show current project, story, and sprint context
+const BASE_PROMPT =
+  "You are a helpful Jira assistant. You can retrieve, comment on, update, and create Jira issues. Be concise and return markdown-formatted responses.";
 
-**🧪 Examples:**
-- \`set-context project ABC\`
-- \`set-context story ABC-123\`
-- \`set-context sprint Sprint 14\`
-- \`set-context backlog\`
+let currentIssueKey: string | null = null;
+const output = vscode.window.createOutputChannel("Jira Extension Logs");
 
-Type any of the above commands to begin interacting with Jira!
-`);
+export function activate(context: vscode.ExtensionContext) {
+  const handler: vscode.ChatRequestHandler = async (
+    request,
+    chatContext,
+    stream,
+    token
+  ) => {
+    const config = vscode.workspace.getConfiguration();
+    const domain = config.get<string>("jiraChat.domain");
+    const email = config.get<string>("jiraChat.email");
+    const apiToken = config.get<string>("jiraChat.apiToken");
+
+    if (!domain || !email || !apiToken) {
+      stream.markdown("❌ Please configure Jira credentials in settings (`jiraChat.*`).");
+      return;
+    }
+
+    const userInput = request.prompt.trim();
+    const parts = userInput.split(" ").map((p) => p.trim());
+    const firstWord = parts[0]?.toLowerCase();
+
+    // Enforce set-context before other commands
+    const userContext = getUserContext(context);
+    if (!firstWord.startsWith("set-context") && !userContext?.issueKey) {
+      stream.markdown("❗ Please set context first using `set-context [story|defect] <ISSUE-KEY>`.");
+      return;
+    }
+
+    if (firstWord === "set-context") {
+      const [_, type, ...rest] = parts;
+      const value = rest.join(" ").trim().toUpperCase();
+      if (!type || !value) {
+        stream.markdown("❗ Usage: `set-context [project|story|defect|sprint|backlog] <value>`");
+        return;
+      }
+
+      const success = await updateUserContext(context, {
+        projectKey: type === "project" ? value : undefined,
+        issueKey: ["story", "defect"].includes(type) ? value : undefined,
+        sprint: type === "sprint" ? value : type === "backlog" ? null : undefined,
+      }, domain, email, apiToken, stream);
+
+      if (success) {
+        stream.markdown(`✅ Context \`${type}\` set to \`${value}\``);
+      }
+      return;
+    }
+
+    if (firstWord === "clear-context") {
+      await clearUserContext(context);
+      stream.markdown("🧹 Jira context cleared.");
+      return;
+    }
+
+    if (firstWord === "show-context") {
+      const markdown = formatUserContextMarkdown(userContext);
+      stream.markdown(markdown);
+      return;
+    }
+
+    const knownCommands = [
+      "get",
+      "comment",
+      "update-summary",
+      "update-field",
+      "create-subtask",
+      "generate-files",
+      "create-branch",
+      "generatefilesandcreatepr",
+      "generatefileandcreateprwithapi",
+      "update-all-details-in-jira",
+      "help"
+    ];
+
+    if (knownCommands.includes(firstWord)) {
+      await handleJiraCommand(firstWord, parts.slice(1), {
+        currentIssueKey: userContext.issueKey || null,
+        domain,
+        email,
+        apiToken,
+        context: chatContext,
+        stream,
+        request,
+        token,
+      });
+      return;
+    }
+
+    const contextualPrompt = userContext.issueKey
+      ? `${BASE_PROMPT} The current Jira issue in context is ${userContext.issueKey}.`
+      : BASE_PROMPT;
+
+    const messages = [
+      vscode.LanguageModelChatMessage.User(contextualPrompt),
+      ...getAssistantHistory(chatContext),
+      vscode.LanguageModelChatMessage.User(userInput),
+    ];
+
+    const aiResponse = await request.model.sendRequest(messages, {}, token);
+    for await (const chunk of aiResponse.text) {
+      stream.markdown(chunk);
+    }
+  };
+
+  const participant = vscode.chat.createChatParticipant("jiraCopilot", handler);
+  context.subscriptions.push(participant);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("jiraChat.start", () => {
+      vscode.window.showInformationMessage("Jira Chat Started!");
+    })
+  );
+}
+
+
+-----
+// context.ts
+import * as vscode from "vscode";
+import fetch from "node-fetch";
+
+export type JiraContext = {
+  issueKey?: string;
+  projectKey?: string;
+  sprint?: string | null;
+};
+
+const CONTEXT_KEY = "jiraContext";
+
+/**
+ * Get the stored Jira context.
+ */
+export function getUserContext(global: vscode.ExtensionContext): JiraContext {
+  return global.globalState.get<JiraContext>(CONTEXT_KEY) || {};
+}
+
+/**
+ * Update the context, with validation via Jira API.
+ */
+export async function updateUserContext(
+  global: vscode.ExtensionContext,
+  updates: Partial<JiraContext>,
+  domain: string,
+  email: string,
+  token: string,
+  stream: vscode.ChatResponseStream
+): Promise<boolean> {
+  const current = getUserContext(global);
+  const newContext = { ...current };
+
+  try {
+    if (updates.projectKey) {
+      const response = await fetch(`${domain}/rest/api/3/project/${updates.projectKey}`, {
+        headers: {
+          Authorization: "Basic " + Buffer.from(`${email}:${token}`).toString("base64"),
+          Accept: "application/json",
+        },
+      });
+      if (!response.ok) throw new Error("Project not found");
+      newContext.projectKey = updates.projectKey;
+    }
+
+    if (updates.issueKey) {
+      const response = await fetch(`${domain}/rest/api/3/issue/${updates.issueKey}`, {
+        headers: {
+          Authorization: "Basic " + Buffer.from(`${email}:${token}`).toString("base64"),
+          Accept: "application/json",
+        },
+      });
+      if (!response.ok) throw new Error("Issue not found");
+      newContext.issueKey = updates.issueKey;
+    }
+
+    if (updates.sprint !== undefined) {
+      newContext.sprint = updates.sprint;
+    }
+
+    await global.globalState.update(CONTEXT_KEY, newContext);
+    return true;
+  } catch (error: any) {
+    stream.markdown(`❌ ${error.message}`);
+    return false;
+  }
+}
+
+/**
+ * Clear all context keys.
+ */
+export async function clearUserContext(global: vscode.ExtensionContext): Promise<void> {
+  await global.globalState.update(CONTEXT_KEY, {});
+}
+
+/**
+ * Format context as markdown.
+ */
+export function formatUserContextMarkdown(ctx: JiraContext): string {
+  return `### 📌 Current Context
+- **Project**: \`${ctx.projectKey || "Not set"}\`
+- **Issue**: \`${ctx.issueKey || "Not set"}\`
+- **Sprint**: \`${ctx.sprint ?? "Not set"}\``;
+}
