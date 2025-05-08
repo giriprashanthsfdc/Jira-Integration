@@ -1,0 +1,20 @@
+stream.markdown(`
+### 🤖 Jira Chat Assistant – Help Menu
+
+**🧭 Context Commands:**
+- \`set-context project <project-key>\` – Set current project (e.g., \`ABC\`)
+- \`set-context story <story-key>\` – Set current story (e.g., \`ABC-123\`)
+- \`set-context defect <defect-key>\` – Set current defect (e.g., \`ABC-456\`)
+- \`set-context sprint <sprint-name>\` – Set active sprint (e.g., \`Sprint 12\`)
+- \`set-context backlog\` – Use backlog as the target context
+- \`clear-context\` – Clear all current context
+- \`show-context\` – Show current project, story, and sprint context
+
+**🧪 Examples:**
+- \`set-context project ABC\`
+- \`set-context story ABC-123\`
+- \`set-context sprint Sprint 14\`
+- \`set-context backlog\`
+
+Type any of the above commands to begin interacting with Jira!
+`);
