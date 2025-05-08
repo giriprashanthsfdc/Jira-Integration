@@ -55,6 +55,7 @@ export function activate(context: vscode.ExtensionContext) {
       "generatefilesandcreatepr",
       "help",
       "update-all-details-in-jira",
+      "generatefileandcreateprwithapi"
     ];
 
     if (knownCommands.includes(firstWord)) {
@@ -234,38 +235,27 @@ async function handleJiraCommand(
       await generateFilesFromMarkdown(markdown, stream);
       break;
     }
-    case "implement": {
-      if (!userInput) {
-        stream.markdown(
-          "❗ Please provide a feature description to implement."
-        );
-        return;
-      }
+    case "generatefileandcreateprwithapi": {
+      const [sourceBranch = "main"] = args;
 
-      const prompt = currentIssueKey
-        ? `The current Jira issue is ${currentIssueKey}. Implement the following using Salesforce best practices and output files in markdown format with correct folder structure:\n\n${userInput}`
-        : `Implement the following using Salesforce best practices and output files in markdown format with correct folder structure:\n\n${userInput}`;
-
-      const messages = [
-        vscode.LanguageModelChatMessage.User(prompt),
-        ...getAssistantHistory(context),
-      ];
-
-      const aiResponse = await request.model.sendRequest(messages, {}, token);
-      let fullResponse = "";
-      output.appendLine(
-        "Generating files from markdown content..." + aiResponse
+      if (!currentIssueKey) {
+      stream.markdown(
+        "❗ Please set the Jira issue context (e.g. `JIRA-1234`) before proceeding."
       );
-      output.show();
-      for await (const chunk of aiResponse.text) {
-        stream.markdown(chunk);
-        fullResponse += chunk;
+      return;
       }
 
-      //const result = await generateSalesforceFilesFromMarkdown(fullResponse, stream);
-      // if (!result) {
-      // stream.markdown("⚠️ No valid file blocks found in the Copilot response.");
-      //}
+      await generatefilesandcreateprwithgithubapi(
+      domain,
+      email,
+      apiToken,
+      currentIssueKey,
+      sourceBranch,
+      context,
+      stream,
+      token,
+      request
+      );
 
       break;
     }
@@ -335,7 +325,7 @@ async function handleJiraCommand(
 
         // Create Pull Request
         const prTitle = `feat(${currentIssueKey}): ${rawSummary}`;
-        const prBody = `This PR resolves **${currentIssueKey}**.\n\nGenerated via Copilot Assistant.`;
+        const prBody = `This PR resolves **${currentIssueKey}**.`;
 
         const { stdout: prOutput } = await exec(
           `/opt/homebrew/bin/gh pr create --base ${sourceBranch} --head ${newBranchName} --title "${prTitle}" --body "${prBody}"`
@@ -405,7 +395,7 @@ async function handleJiraCommand(
 
         // ✅ Create Pull Request
         const prTitle = `feat(${currentIssueKey}): ${rawSummary}`;
-        const prBody = `This PR resolves **${currentIssueKey}**.\n\nAuto-generated from Copilot assistant.`;
+        const prBody = `This PR resolves **${currentIssueKey}**.`;
         const { stdout: prResult } = await exec(
           `/opt/homebrew/bin/gh pr create --base ${sourceBranch} --head ${branchName} --title "${prTitle}" --body "${prBody}"`
         );
@@ -1221,5 +1211,108 @@ async function updateJiraFields(domain: string, email: string, token: string, is
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`Failed to update fields: ${response.statusText} - ${body}`);
+  }
+}
+
+async function generatefilesandcreateprwithgithubapi(
+  domain: string,
+  email: string,
+  apiToken: string,
+  currentIssueKey: string,
+  sourceBranch: any,
+  context: vscode.ChatContext,
+  stream: vscode.ChatResponseStream,
+  token: any,
+  request: any
+) {
+  let githubRepo: string | null = null;
+ // let githubToken = vscode.workspace.getConfiguration().get("jirgithub.token");
+  const config = vscode.workspace.getConfiguration();
+  const githubToken = config.get<string>("jiraChat.GithubAccessToken") || "";
+  const exec = require("util").promisify(require("child_process").exec);
+
+  try {
+    const { stdout: remoteUrl } = await exec("git config --get remote.origin.url");
+    const match = remoteUrl.trim().match(/github\.com[:\/](.+?)(\.git)?$/);
+    if (match) {
+      githubRepo = match[1];
+    } else {
+      stream.markdown("❗ Unable to determine GitHub repository from the current workspace.");
+      return;
+    }
+  } catch (err) {
+    stream.markdown("❗ This workspace is not connected to a Git repository.");
+    return;
+  }
+
+  if (!githubToken) {
+    stream.markdown("❗ Please set `github.token` in your settings.");
+    return;
+  }
+  if (!githubToken || !githubRepo) {
+    stream.markdown("❗ Please set `github.token` and `github.repo` in your settings.");
+    return;
+  }
+
+  const issue = await getJiraIssue(domain, email, apiToken, currentIssueKey);
+  const rawSummary = issue.fields.summary;
+  const sanitizedSummary = rawSummary
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, "").slice(0, 14);
+  const newBranchName = `${currentIssueKey.toLowerCase()}-${sanitizedSummary}-${timestamp}`;
+
+  const workspacePath = vscode.workspace.workspaceFolders?.[0].uri.fsPath || "";
+  const sfdxPath = path.join(workspacePath, "force-app", "main", "default");
+
+  try {
+    stream.markdown(`🔄 Switching to \`${sourceBranch}\` and pulling latest changes...`);
+    await exec(`git checkout ${sourceBranch}`);
+    await exec(`git pull origin ${sourceBranch}`);
+
+    stream.markdown(`🌿 Creating new branch \`${newBranchName}\`...`);
+    await exec(`git checkout -b ${newBranchName}`);
+
+    const markdown = getLastAssistantMarkdown(context);
+    if (!markdown) {
+      stream.markdown("❗ No previous Copilot response found to extract files.");
+      return;
+    }
+
+    await generateFilesFromMarkdown(markdown, stream);
+    await exec(`git add ${sfdxPath}`);
+    await exec(`git commit -m "feat(${currentIssueKey}): generated files for ${rawSummary}"`);
+    await exec(`git push --set-upstream origin ${newBranchName}`);
+
+    const prTitle = `feat(${currentIssueKey}): ${rawSummary}`;
+    const prBody = `This PR resolves **${currentIssueKey}**.`;
+
+    const prResponse = await fetch(`https://api.github.com/repos/${githubRepo}/pulls`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${githubToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/vnd.github+json",
+      },
+      body: JSON.stringify({
+        title: prTitle,
+        body: prBody,
+        head: newBranchName,
+        base: sourceBranch,
+      }),
+    });
+
+    if (!prResponse.ok) {
+      const errorText = await prResponse.text();
+      throw new Error(`Failed to create PR: ${prResponse.status} - ${errorText}`);
+    }
+
+    const prData = await prResponse.json();
+    stream.markdown(`🚀 Pull Request created: [${prData.title}](${prData.html_url})`);
+
+  } catch (err) {
+    console.error("GitHub PR error:", (err as Error).message);
+    stream.markdown(`❌ Failed to create GitHub PR: ${(err as Error).message}`);
   }
 }
