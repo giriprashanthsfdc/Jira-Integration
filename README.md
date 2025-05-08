@@ -1,3 +1,12 @@
+
+@jira set-context project <project-key>	Sets the current Jira project context (e.g., ABC).
+@jira set-context story <story-key>	Sets the current story issue (e.g., ABC-123).
+@jira set-context defect <defect-key>	Sets the current defect issue (e.g., ABC-456).
+@jira set-context sprint <sprint-id-or-name>	Sets the active sprint context (e.g., Sprint 12).
+@jira set-context backlog	Indicates issues should go to backlog (no active sprint).
+@jira clear-context	Clears all context: project, story/defect, sprint, backlog.
+@jira show-context	Displays the current working context for project, issue, and sprint.
+
 function extractRepoPath(gitUrl) {
   const sshMatch = gitUrl.match(/^git@[^:]+:([^/]+\/[^/]+)\.git$/);
   const httpsMatch = gitUrl.match(/^https:\/\/[^/]+\/([^/]+\/[^/]+)(\.git)?$/);
