@@ -1,4 +1,4 @@
-stream.markdown(`
+"stream.markdown(`
 ### 🤖 Jira Chat Assistant – Help Menu
 
 **🧭 Context Commands:**
@@ -17,7 +17,7 @@ stream.markdown(`
 - \`set-context backlog\`
 
 Type any of the above commands to begin interacting with Jira!
-`);
+`);"
 
 @jira set-context project <project-key>	Sets the current Jira project context (e.g., ABC).
 @jira set-context story <story-key>	Sets the current story issue (e.g., ABC-123).
