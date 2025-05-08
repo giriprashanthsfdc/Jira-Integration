@@ -40,12 +40,44 @@
                 },
                 "jiraChat.email": {
                     "type": "string",
-                    "default": ""
+                    "default": "giriprashanthsfdc@gmail.com"
                 },
                 "jiraChat.apiToken": {
                     "type": "string",
                     "default": ""
-                }
+                }, 
+                "jiraChat.GithubAccessToken": {
+                    "type": "string",
+                    "default": ""
+                },
+                "jiraChat.schema.storyFields": {
+                    "type": "array",
+                    "description": "Static schema configuration for Jira Story issue type",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": { "type": "string" },
+                        "key": { "type": "string" },
+                        "type": { "type": "string" },
+                        "custom": { "type": "string" }
+                      }
+                    },
+                    "default": []
+                  },
+                  "jiraChat.schema.subtaskFields": {
+                    "type": "array",
+                    "description": "Static schema configuration for Jira Sub-task or Task issue type",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": { "type": "string" },
+                        "key": { "type": "string" },
+                        "type": { "type": "string" },
+                        "custom": { "type": "string" }
+                      }
+                    },
+                    "default": []
+                  }
             }
         }
     },
