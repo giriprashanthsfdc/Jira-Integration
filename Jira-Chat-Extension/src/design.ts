@@ -25,11 +25,60 @@ export async function handleDesignCommand(
 
   switch (subCommand) {
     case "generate-design-options": {
-      const prompt = `You are a Salesforce Solution Architect. Based on the following requirement, propose 2-3 design options with pros, cons, estimated complexity, and suitable use cases. Include standard out-of-the-box features, custom development, batch/real-time integration options in a comparison table:
+      const prompt = `You are a Salesforce Solution Architect.
+
+Given the following requirement, generate **3 detailed design options**. For each option:
 
 ---
+
+### 🧩 Include a Comparison Table with:
+
+| Attribute         | Option 1: [Title]       | Option 2: [Title]       | Option 3: [Title]       |
+|------------------|-------------------------|--------------------------|--------------------------|
+| **Approach**       | Standard / Hybrid / Custom |
+| **Integration**    | Real-time / Batch / Event-driven / None |
+| **Configurable**   | High / Medium / Low (e.g. metadata-driven, static config) |
+| **Bulk Handling**  | Yes / No (explain safety in large volume) |
+| **Security**       | CRUD, FLS, Sharing (Yes/No and how) |
+| **Extensibility**  | High / Medium / Low |
+| **Complexity**     | Low / Medium / High |
+| **Best Use Case**  | When should this be preferred |
+
+---
+
+### 🔍 For each Option, provide:
+
+#### 📌 Option X: [Title]
+- **Overview**: Explain the architecture in 2-3 sentences.
+- **Pros**: At least 3 benefits of using this option.
+- **Cons**: At least 3 limitations or trade-offs.
+- **Estimated Complexity**: Low / Medium / High with reasoning (based on effort, config/code needed, testing, deployment, etc.)
+- **Ideal When**: Describe situations this option is best suited for.
+
+---
+
+### 🛠️ Consider the following while proposing designs:
+- Declarative tools: Flows, Validation Rules, Assignment Rules, Approval Process, Record Types
+- Hybrid solutions: Config + Apex, Flow + Callout, Flow + Custom Metadata
+- Custom solutions: Apex Classes, Triggers, Platform Events, Batch Apex, Queueables
+- Integration patterns: Real-time (HTTP), Batch (Scheduled), Event-driven (Pub/Sub, Change Data Capture)
+- Configurability: Use of Custom Metadata Types, Custom Settings, Dynamic Apex
+- Scalability: Handling bulk records, SOQL/SOSL limits, async processing
+- Security: CRUD/FLS enforcement, Sharing rules, user role/access control
+- Extensibility: Future enhancement potential, plug-in design, modularity
+- Complexity assessment: Dev/test/deploy effort, dependency on external systems or teams
+
+---
+
+**User Story**:
 ${description}
----`;
+
+**Acceptance Criteria**:
+{Insert acceptance criteria here}
+
+---
+
+Now generate the response in the specified format.`;
 
       const messages = [vscode.LanguageModelChatMessage.User(prompt)];
       const aiResponse = await request.model.sendRequest(messages, {}, token);
