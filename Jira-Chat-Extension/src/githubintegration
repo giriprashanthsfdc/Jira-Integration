@@ -1,0 +1,107 @@
+import * as vscode from "vscode";
+import { exec } from "child_process";
+import { promisify } from "util";
+import fetch from "node-fetch";
+import { getJiraIssue } from "./jiraintegration";
+
+const execAsync = promisify(exec);
+
+export async function createBranchAndPR(issueKey: string, sourceBranch: string, stream: vscode.ChatResponseStream) {
+  const workspacePath = vscode.workspace.workspaceFolders?.[0].uri.fsPath || "";
+  const config = vscode.workspace.getConfiguration();
+  const githubToken = config.get<string>("jiraChat.GithubAccessToken") || "";
+
+  const domain = config.get<string>("jiraChat.domain") || "";
+  const email = config.get<string>("jiraChat.email") || "";
+  const apiToken = config.get<string>("jiraChat.apiToken") || "";
+
+  let githubRepo: string | null = null;
+
+  try {
+    const { stdout: remoteUrl } = await execAsync("git config --get remote.origin.url");
+    const match = remoteUrl.trim().match(/github\.com[:\/](.+?)(\.git)?$/);
+    if (match) githubRepo = match[1];
+    else throw new Error("❗ Unable to determine GitHub repository.");
+  } catch (err) {
+    stream.markdown(`❗ Git error: ${(err as Error).message}`);
+    return;
+  }
+
+  const issue = await getJiraIssue(domain, email, apiToken, issueKey);
+  const summary = issue.fields.summary;
+  const sanitized = summary.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, "").slice(0, 14);
+  const branch = `${issueKey.toLowerCase()}-${sanitized}-${timestamp}`;
+
+  try {
+    await createGitHubBranch(branch, sourceBranch);
+    stream.markdown(`🌿 Created and pushed branch \`${branch}\``);
+
+    const prTitle = `feat(${issueKey}): ${summary}`;
+    const prBody = `This PR resolves **${issueKey}**.`;
+
+    const prUrl = await createGitHubPullRequest(githubRepo, prTitle, prBody, branch, sourceBranch, githubToken);
+    stream.markdown(`🚀 Pull Request created: [View PR](${prUrl})`);
+  } catch (err) {
+    stream.markdown(`❌ GitHub error: ${(err as Error).message}`);
+  }
+}
+
+export async function createBranchOnly(issueKey: string, sourceBranch: string, stream: vscode.ChatResponseStream) {
+  const config = vscode.workspace.getConfiguration();
+  const domain = config.get<string>("jiraChat.domain") || "";
+  const email = config.get<string>("jiraChat.email") || "";
+  const apiToken = config.get<string>("jiraChat.apiToken") || "";
+
+  const issue = await getJiraIssue(domain, email, apiToken, issueKey);
+  const summary = issue.fields.summary;
+  const sanitized = summary.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, "").slice(0, 14);
+  const branch = `${issueKey.toLowerCase()}-${sanitized}-${timestamp}`;
+
+  try {
+    await createGitHubBranch(branch, sourceBranch);
+    stream.markdown(`✅ Branch \`${branch}\` created and pushed from \`${sourceBranch}\``);
+  } catch (err) {
+    stream.markdown(`❌ Branch creation failed: ${(err as Error).message}`);
+  }
+}
+
+export async function createGitHubBranch(branchName: string, sourceBranch: string) {
+  await execAsync(`git checkout ${sourceBranch}`);
+  await execAsync(`git pull origin ${sourceBranch}`);
+  await execAsync(`git checkout -b ${branchName}`);
+  await execAsync(`git push --set-upstream origin ${branchName}`);
+}
+
+export async function createGitHubPullRequest(
+  repo: string,
+  title: string,
+  body: string,
+  head: string,
+  base: string,
+  token: string
+): Promise<string> {
+  const response = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/vnd.github+json",
+    },
+    body: JSON.stringify({
+      title,
+      body,
+      head,
+      base,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to create PR: ${response.status} - ${text}`);
+  }
+
+  const data = await response.json();
+  return data.html_url;
+}
