@@ -1,9 +1,10 @@
-// design.ts
+// development.ts
 import * as vscode from "vscode";
 import { getLastAssistantMarkdown } from "./copilotintegration";
-import { getJiraIssue, createJiraSubtask, updateJiraField } from "./jiraintegration";
+import { getJiraIssue, updateJiraField } from "./jiraintegration";
+import { generateFilesFromMarkdown } from "./filegeneration";
 
-export async function handleDesignCommand(
+export async function handleDevelopmentCommand(
   subCommand: string,
   args: string[],
   stream: vscode.ChatResponseStream,
@@ -11,7 +12,6 @@ export async function handleDesignCommand(
   request: vscode.ChatRequest,
   token: vscode.CancellationToken
 ) {
-  const description = getLastUserInputDescription(context);
   const config = vscode.workspace.getConfiguration();
   const domain = config.get<string>("jiraChat.domain") || "";
   const email = config.get<string>("jiraChat.email") || "";
@@ -24,61 +24,42 @@ export async function handleDesignCommand(
   }
 
   switch (subCommand) {
-    case "generate-design-options": {
-      const prompt = `You are a Salesforce Solution Architect.
+    case "implement": {
+      const design = getLastAssistantMarkdown(context);
+      if (!design) {
+        stream.markdown("❗ No finalized design found in recent chat history.");
+        return;
+      }
 
-Given the following requirement, generate **3 detailed design options**. For each option:
+      const prompt = `You are a senior Salesforce developer.
+Implement the solution based on the following design. Ensure best practices:
+- Apex separation of concerns
+- Exception handling and logging
+- Bulk-safe and scalable code
+- Metadata/config-driven if applicable
+- Code must follow correct folder structure (e.g., force-app/main/default/classes/...)
+- Output the code using this markdown format:
 
----
+\`\`\`apex
+// File: force-app/main/default/classes/LeadController.cls
+public with sharing class LeadController {
+    @AuraEnabled
+    public static void saveLeadRecord(Lead lead) {
+        insert lead;
+    }
+}
+\`\`\`
 
-### 🧩 Include a Comparison Table with:
+- If setup/configuration objects are needed (like Custom Metadata Types, Custom Settings, Named Credentials, etc.), include them with:
+\`\`\`xml
+// File: force-app/main/default/customMetadata/My_Metadata.md-meta.xml
+<xml content>
+\`\`\`
 
-| Attribute         | Option 1: [Title]       | Option 2: [Title]       | Option 3: [Title]       |
-|------------------|-------------------------|--------------------------|--------------------------|
-| **Approach**       | Standard / Hybrid / Custom |
-| **Integration**    | Real-time / Batch / Event-driven / None |
-| **Configurable**   | High / Medium / Low (e.g. metadata-driven, static config) |
-| **Bulk Handling**  | Yes / No (explain safety in large volume) |
-| **Security**       | CRUD, FLS, Sharing (Yes/No and how) |
-| **Extensibility**  | High / Medium / Low |
-| **Complexity**     | Low / Medium / High |
-| **Best Use Case**  | When should this be preferred |
-
----
-
-### 🔍 For each Option, provide:
-
-#### 📌 Option X: [Title]
-- **Overview**: Explain the architecture in 2-3 sentences.
-- **Pros**: At least 3 benefits of using this option.
-- **Cons**: At least 3 limitations or trade-offs.
-- **Estimated Complexity**: Low / Medium / High with reasoning (based on effort, config/code needed, testing, deployment, etc.)
-- **Ideal When**: Describe situations this option is best suited for.
-
----
-
-### 🛠️ Consider the following while proposing designs:
-- Declarative tools: Flows, Validation Rules, Assignment Rules, Approval Process, Record Types
-- Hybrid solutions: Config + Apex, Flow + Callout, Flow + Custom Metadata
-- Custom solutions: Apex Classes, Triggers, Platform Events, Batch Apex, Queueables
-- Integration patterns: Real-time (HTTP), Batch (Scheduled), Event-driven (Pub/Sub, Change Data Capture)
-- Configurability: Use of Custom Metadata Types, Custom Settings, Dynamic Apex
-- Scalability: Handling bulk records, SOQL/SOSL limits, async processing
-- Security: CRUD/FLS enforcement, Sharing rules, user role/access control
-- Extensibility: Future enhancement potential, plug-in design, modularity
-- Complexity assessment: Dev/test/deploy effort, dependency on external systems or teams
+Also include a valid package.xml reflecting only the changed/added components.
 
 ---
-
-**User Story**:
-${description}
-
-**Acceptance Criteria**:
-{Insert acceptance criteria here}
-
----
-
-Now generate the response in the specified format.`;
+${design}`;
 
       const messages = [vscode.LanguageModelChatMessage.User(prompt)];
       const aiResponse = await request.model.sendRequest(messages, {}, token);
@@ -89,64 +70,75 @@ Now generate the response in the specified format.`;
       break;
     }
 
-    case "finalise-design": {
-      const designNumber = args[0];
-      const fullDesign = getLastAssistantMarkdown(context);
-      if (!fullDesign) {
-        stream.markdown("❗ No previous design options found to finalise.");
+    case "generate-components": {
+      const markdown = getLastAssistantMarkdown(context);
+      if (!markdown) {
+        stream.markdown("❗ No component definitions found in markdown.");
         return;
       }
-
-      const selected = extractDesignOption(fullDesign, designNumber);
-      const subtask = await createJiraSubtask(
-        domain,
-        email,
-        apiToken,
-        issueKey,
-        "Design",
-        selected || fullDesign
-      );
-
-      await updateJiraField(domain, email, apiToken, issueKey, "Description", selected || fullDesign);
-      stream.markdown(`📌 Finalised design and created sub-task [${subtask.key}](${domain}/browse/${subtask.key})`);
+      await generateFilesFromMarkdown(markdown, stream);
       break;
     }
 
-    case "create-design-document": {
-      const designContent = getLastAssistantMarkdown(context);
-      if (!designContent) {
-        stream.markdown("❗ No design content found to generate document.");
+    case "scan-for-vulnerabilities": {
+      const code = getLastAssistantMarkdown(context);
+      if (!code) {
+        stream.markdown("❗ No Apex code found to scan.");
         return;
       }
-      // In future you can export this to a Confluence page, PDF or markdown file
-      stream.markdown(`📄 **Design Document Generated:**
 
-${designContent}`);
+      const prompt = `You are a Salesforce code auditor.
+Please scan the following Apex code for:
+- SOQL injection
+- Missing bulkification
+- Unhandled exceptions
+- Hardcoded values
+- CRUD/FLS issues
+
+---
+${code}`;
+
+      const messages = [vscode.LanguageModelChatMessage.User(prompt)];
+      const aiResponse = await request.model.sendRequest(messages, {}, token);
+
+      for await (const chunk of aiResponse.text) {
+        stream.markdown(chunk);
+      }
+      break;
+    }
+
+    case "deploy-to-org": {
+      stream.markdown("🚀 Deploying to org... (You can hook Salesforce CLI or Metadata API here)");
+      break;
+    }
+
+    case "develop-test-classes": {
+      const code = getLastAssistantMarkdown(context);
+      if (!code) {
+        stream.markdown("❗ No Apex class found to generate tests for.");
+        return;
+      }
+
+      const prompt = `Write test classes for the following Apex code with:
+- >90% coverage
+- Tests for bulk, async, exception, and positive/negative cases
+- Use mock data factories if needed
+
+---
+${code}`;
+
+      const messages = [vscode.LanguageModelChatMessage.User(prompt)];
+      const aiResponse = await request.model.sendRequest(messages, {}, token);
+
+      for await (const chunk of aiResponse.text) {
+        stream.markdown(chunk);
+      }
       break;
     }
 
     default:
-      stream.markdown("❓ Unknown design command.");
+      stream.markdown("❓ Unknown development command.");
   }
-}
-
-function extractDesignOption(markdown: string, numberArg?: string): string | null {
-  const lines = markdown.split("\n");
-  const options: string[][] = [];
-  let current: string[] = [];
-
-  for (const line of lines) {
-    if (/^#+\s*Option\s*\d+/i.test(line)) {
-      if (current.length > 0) options.push(current);
-      current = [line];
-    } else {
-      current.push(line);
-    }
-  }
-  if (current.length > 0) options.push(current);
-
-  const index = numberArg ? parseInt(numberArg) - 1 : 0;
-  return options[index] ? options[index].join("\n") : null;
 }
 
 function getCurrentJiraKey(context: vscode.ChatContext): string | null {
@@ -156,14 +148,4 @@ function getCurrentJiraKey(context: vscode.ChatContext): string | null {
     }
   }
   return null;
-}
-
-function getLastUserInputDescription(context: vscode.ChatContext): string {
-  for (const h of [...context.history].reverse()) {
-    if ((h as any).message?.prompt) {
-      const text = (h as any).message.prompt;
-      if (text.toLowerCase().includes("description") || text.length > 30) return text;
-    }
-  }
-  return "";
 }
