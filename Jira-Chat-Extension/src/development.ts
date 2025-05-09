@@ -37,12 +37,23 @@ Implement the solution based on the following design. Ensure best practices:
 - Exception handling and logging
 - Bulk-safe and scalable code
 - Metadata/config-driven if applicable
-- Code must follow correct folder structure
+- Code must follow correct folder structure (e.g., force-app/main/default/classes/...)
 - Output the code using this markdown format:
 
-### File: classes/MyClass.cls
 \`\`\`apex
-<code here>
+// File: force-app/main/default/classes/LeadController.cls
+public with sharing class LeadController {
+    @AuraEnabled
+    public static void saveLeadRecord(Lead lead) {
+        insert lead;
+    }
+}
+\`\`\`
+
+- If setup/configuration objects are needed (like Custom Metadata Types, Custom Settings, Named Credentials, etc.), include them with:
+\`\`\`xml
+// File: force-app/main/default/customMetadata/My_Metadata.md-meta.xml
+<xml content>
 \`\`\`
 
 Also include a valid package.xml reflecting only the changed/added components.
