@@ -14,7 +14,6 @@ Use the following schema to generate a Jira Story payload:
 - `description`: details in markdown
 - `customfield_10031`: Gherkin-style acceptance criteria
 - `issuetype`: { "name": "Story" }
-- `project`: { "key": "ABC" }
 
 Story:
 ${input:storyText}
