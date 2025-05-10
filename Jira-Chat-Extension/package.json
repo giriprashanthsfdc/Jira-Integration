@@ -63,3 +63,57 @@
         "node-fetch": "^2.6.7"
     }
 }
+
+{
+  "name": "chat-sdlc",
+  "displayName": "Chat SDLC",
+  "description": "Chat-based Software Development Life Cycle automation for any language (e.g. Salesforce, Java, Node.js)",
+  "version": "0.1.0",
+  "publisher": "your-name",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onChatParticipant:chatSDLC"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "chatSDLC",
+        "label": "Chat SDLC",
+        "entryPoint": "./dist/extension.js"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Chat SDLC",
+      "properties": {
+        "chatSDLC.language": {
+          "type": "string",
+          "default": "salesforce",
+          "description": "Primary programming language for design/code generation (e.g., salesforce, java, nodejs)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "prepublish": "npm run compile",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.4.2",
+    "@vscode/prompt-tsx": "^0.4.0",
+    "typescript": "^5.3.3",
+    "vsce": "^3.13.0"
+  },
+  "dependencies": {
+    "marked": "^5.2.0" // Optional if you're parsing .md content manually
+  }
+}
+
