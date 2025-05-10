@@ -8,13 +8,16 @@ Use these guidelines to define consistent prompts for Jira operations. All field
 
 ## create-story
 
-Include:
-- `summary`: concise title
-- `description`: markdown body
+Use the following schema to generate a Jira Story payload:
+
+- `summary`: short title
+- `description`: details in markdown
 - `customfield_10031`: Gherkin-style acceptance criteria
-- `issuetype`: `{ "name": "Story" }`
-- `project`: `{ "key": "ABC" }`
-- Optional: `storyPoints`
+- `issuetype`: { "name": "Story" }
+- `project`: { "key": "ABC" }
+
+Story:
+${input:storyText}
 
 ## update-story
 
