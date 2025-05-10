@@ -1,0 +1,13 @@
+{
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+  "chat.promptFilesLocations": [".chatSDLC/Prompts/Salesforce"],
+  "chat.instructionsFilesLocations": [".chatSDLC/Prompts/Salesforce"],
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "file": ".chatSDLC/Prompts/Salesforce/salesforce.instructions.md"
+    },
+    {
+      "file": ".chatSDLC/Prompts/Salesforce/salesforce.types.instructions.md"
+    }
+  ]
+}
