@@ -1,11 +1,6 @@
 import * as vscode from 'vscode';
 import fetch from 'node-fetch';
-import {
-  generateCreateStoryPrompt,
-  generateUpdateStoryPrompt,
-  generateSubtaskPrompt,
-  generateSprintPrompt
-} from './promptGenerators/jiraPromptGenerator';
+import { generatePrompt } from './promptGenerators/jiraPromptGenerator';
 import {
   createStory,
   updateStory,
@@ -25,7 +20,7 @@ export async function handleContextCommand(chat: vscode.ChatRequest, stream: vsc
 
   switch (command) {
     case 'create-story': {
-      const prompt = await generateCreateStoryPrompt(remainder);
+      const prompt = await generatePrompt('create-story', remainder);
       const response = await vscode.chat.sendRequest([
         { role: 'system', content: 'You are an assistant that generates Jira payloads from user stories using JSON format.' },
         { role: 'user', content: prompt }
@@ -39,7 +34,7 @@ export async function handleContextCommand(chat: vscode.ChatRequest, stream: vsc
     case 'update-story': {
       const [issueKey, ...rest] = remainder.split(' ');
       const updateText = rest.join(' ');
-      const prompt = await generateUpdateStoryPrompt(issueKey, updateText);
+      const prompt = await generatePrompt('update-story', `${issueKey} ${updateText}`);
       const response = await vscode.chat.sendRequest([{ role: 'user', content: prompt }]);
       const jsonMatch = response.content.match(/```json\n([\s\S]*?)```/);
       if (!jsonMatch) return stream.markdown('⚠️ Could not extract fields JSON.');
@@ -49,7 +44,7 @@ export async function handleContextCommand(chat: vscode.ChatRequest, stream: vsc
 
     case 'create-subtask': {
       const [parentKey, ...task] = remainder.split(' ');
-      const prompt = await generateSubtaskPrompt(parentKey, task.join(' '));
+      const prompt = await generatePrompt('create-subtask', `${parentKey} ${task.join(' ')}`);
       const response = await vscode.chat.sendRequest([{ role: 'user', content: prompt }]);
       const jsonMatch = response.content.match(/```json\n([\s\S]*?)```/);
       if (!jsonMatch) return stream.markdown('⚠️ Could not extract sub-task list.');
@@ -82,7 +77,7 @@ export async function handleContextCommand(chat: vscode.ChatRequest, stream: vsc
     }
 
     case 'create-sprint': {
-      const prompt = await generateSprintPrompt(remainder);
+      const prompt = await generatePrompt('create-sprint', remainder);
       const response = await vscode.chat.sendRequest([{ role: 'user', content: prompt }]);
       const jsonMatch = response.content.match(/```json\n([\s\S]*?)```/);
       if (!jsonMatch) return stream.markdown('⚠️ Could not extract sprint JSON.');
