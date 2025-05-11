@@ -1,0 +1,22 @@
+{
+  "name": "chat-sdlc",
+  "version": "1.0.0",
+  "description": "VS Code extension for SDLC automation using chat participants",
+  "type": "module",
+  "main": "./dist/extension.js",
+  "scripts": {
+    "watch": "tsc -w",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vscode/prompt-tsx": "^0.0.15"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.5",
+    "vscode": "^1.89.0"
+  },
+  "engines": {
+    "vscode": "^1.89.0"
+  }
+}
