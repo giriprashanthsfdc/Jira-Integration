@@ -1,0 +1,37 @@
+import {
+  PromptElement,
+  UserMessage,
+  BasePromptElementProps,
+  PromptPiece
+} from '@vscode/prompt-tsx';
+import { ChatContext } from 'vscode';
+import { History } from '../shared/History';
+
+interface Props extends BasePromptElementProps {
+  userQuery: string;
+  language: string;
+  history: ChatContext['history'];
+}
+
+export class DevelopPrompt extends PromptElement<Props> {
+  render(): PromptPiece {
+    return [
+      <UserMessage priority={100}>
+        You are a {this.props.language} developer. Follow the company’s best practices.
+        Generate Apex classes, triggers, Lightning Web Components, flows, metadata XML,
+        and configuration files based on the user’s request.
+      </UserMessage>,
+
+      <History
+        history={this.props.history}
+        passPriority
+        newer={80}
+        older={0}
+        flexGrow={2}
+        flexReserve="/6"
+      />,
+
+      <UserMessage priority={90}>{this.props.userQuery}</UserMessage>
+    ];
+  }
+}
