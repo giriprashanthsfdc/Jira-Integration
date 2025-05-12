@@ -1,13 +1,17 @@
 import * as vscode from 'vscode';
-import { handleDevelop } from './handlers/develop';
+import { handleDevelopCommand } from './commands/develop';
+import { loadCompanyInstructions } from './utils/companyInstructions';
 
-export function activate(context: vscode.ExtensionContext) {
-  const participant = vscode.chat.createChatParticipant('chatSDLC', async (request, chatContext, stream, token) => {
-    const [scope, command] = request.command?.split(' ') || [];
-    if (scope === 'develop') {
-      await handleDevelop(request, chatContext, stream, token);
+export async function activate(context: vscode.ExtensionContext) {
+  await loadCompanyInstructions();
+
+  const participant = vscode.chat.createChatParticipant('chatSDLC', async (request, context, response, token) => {
+    if (request.command === 'develop' && request.prompt.includes('finalized-design')) {
+      await handleDevelopCommand(request, context, response, token);
+    } else {
+      response.markdown('Command not recognized. Try: @chatSDLC develop finalized-design');
     }
   });
 
-  participant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'chatSDLC.png');
+  participant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'sdlc-icon.png');
 }
