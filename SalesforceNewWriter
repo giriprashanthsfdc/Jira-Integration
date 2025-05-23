@@ -1,0 +1,21 @@
+// src/services/salesforceWriter.ts import * as vscode from 'vscode'; import * as fs from 'fs/promises'; import { applyDeltaWithInlineButtons } from './editorUpdateService';
+
+interface FileUpdate { filePath: string; content: string; }
+
+/**
+
+Writes or updates multiple Salesforce files and applies inline diff UI. */ export async function writeMultipleSalesforceFiles(fileUpdates: FileUpdate[]): Promise<void> { for (const { filePath, content } of fileUpdates) { const uri = vscode.Uri.file(filePath); let oldContent = '';
+
+try { const existing = await vscode.workspace.openTextDocument(uri); oldContent = existing.getText(); } catch { oldContent = ''; }
+
+await applyDeltaWithInlineButtons(oldContent, content, uri); } }
+
+
+/**
+
+Register commands for accepting/discarding block changes. */ export function registerSalesforceWriterCommands(context: vscode.ExtensionContext): void { context.subscriptions.push( vscode.commands.registerCommand('chatSDLC.acceptBlockChange', async (block) => { const edit = new vscode.WorkspaceEdit(); edit.insert(vscode.window.activeTextEditor!.document.uri, block.range.start, block.newText); await vscode.workspace.applyEdit(edit); }),
+
+vscode.commands.registerCommand('chatSDLC.discardBlockChange', async (block) => { vscode.window.showInformationMessage('Change discarded.'); }),
+
+vscode.commands.registerCommand('chatSDLC.acceptAllChanges', () => { vscode.commands.executeCommand('workbench.action.files.save'); }) ); }
+
