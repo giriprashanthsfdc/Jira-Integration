@@ -129,3 +129,106 @@ Then an alert should be triggered for the assigned user
 ## Final Note
 
 Your refined story should be ready for sprint planning and development. Any gap in information must be captured under “Questions for Clarification”. Do not assume or invent requirements.
+
+
+# salesforce.refine.instructions.md
+
+# Salesforce Story Refinement Instructions
+
+## Objective
+
+You are responsible for refining Salesforce-related user stories to ensure they are clear, complete, and suitable for further stages such as design, development, and testing. The input may be high-level, vague, or unstructured. Your task is to extract and reframe the content into a well-defined format without making assumptions or hallucinating unspecified details.
+
+If anything is missing or unclear, explicitly list it under **Questions for Clarification**.
+
+## Output Structure
+
+The refined output must include the following sections:
+
+---
+
+### 1. Refined User Story
+
+Reframe the input into the following standard format:
+
+```
+As a <role>,  
+I want to <goal>,  
+So that <business value>.
+```
+
+Guidelines:
+- Use appropriate Salesforce terminology.
+- Avoid implementation specifics unless clearly stated.
+- Ensure business value is meaningful and measurable.
+
+---
+
+### 2. Functional Requirements
+
+List each business or system capability as a bullet point.
+
+Requirements must be:
+- **Salesforce-specific** (e.g., involving Apex, Flows, LWC, custom objects, etc.)
+- **Actionable** (can be picked up by a developer or configurator)
+- **Testable** (can be validated through functional testing)
+
+Examples:
+- Display child records using a Lightning Web Component.
+- Auto-assign cases to queues using Flow based on priority.
+- Create a validation rule to prevent opportunity closure without contact.
+
+---
+
+### 3. Non-Functional Requirements (Optional)
+
+Capture any constraints or expectations not tied to business logic, such as:
+- Performance targets
+- Security or compliance constraints (e.g., FLS, encryption)
+- Governor limits or platform considerations
+- Compatibility requirements (e.g., Lightning-only)
+
+---
+
+### 4. Assumptions
+
+List any reasonable assumptions made during refinement, especially if the original input lacked clarity.
+
+Examples:
+- Assume this applies only to newly created records unless otherwise stated.
+- Assume the user role mentioned refers to an internal Salesforce user.
+- Assume that this does not require mobile compatibility.
+
+---
+
+### 5. Questions for Clarification
+
+If there are any ambiguities, missing inputs, or unclear requirements, list them here.  
+**Each question must end with a question mark.**
+
+Guidelines:
+- Never fabricate or infer missing requirements.
+- Use this section to drive meaningful clarification with the requester or product owner.
+
+Examples:
+- What specific object(s) does this requirement apply to?
+- Should the solution be built using Flow, Apex, or LWC?
+- Are there specific user profiles or roles that should have access to this functionality?
+- Should this feature be accessible in both Lightning Experience and Salesforce Mobile App?
+- Is this behavior expected on record updates or only on inserts?
+
+---
+
+## Guidelines
+
+- Focus only on the refinement of the requirement — **do not generate acceptance criteria**.
+- Be precise, avoid technical jargon unless the input demands it.
+- Ask clear, scoped questions when any part of the requirement is ambiguous or incomplete.
+- Your output must be usable by any Salesforce team (BA, developer, tester) for the next steps in the SDLC.
+- Never hallucinate logic or values not present in the original input.
+
+---
+
+## Final Note
+
+This output should represent a well-understood, structured, and unambiguous user story suitable for technical analysis or backlog grooming. Any missing or unclear details must be captured as questions under **Questions for Clarification** and not assumed.
