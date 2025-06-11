@@ -1,3 +1,29 @@
+{
+  "source": "mydoc.docx",
+  "type": "word",  // or "pdf", "url"
+  "title": "Customer Onboarding Process",
+  "summary": "This document explains the steps and validations involved in onboarding new customers.",
+  "sections": [
+    {
+      "id": "section-1",
+      "heading": "Introduction",
+      "level": 1,
+      "page": 1,
+      "content": "This section introduces the purpose of the onboarding process...",
+      "summary": "Describes the goal of onboarding and who is involved."
+    },
+    {
+      "id": "section-2",
+      "heading": "KYC Validation",
+      "level": 2,
+      "page": 2,
+      "content": "The KYC process includes PAN validation, address proof, and biometrics...",
+      "summary": "Outlines all KYC steps required for compliance."
+    }
+  ]
+}
+
+
 "stream.markdown(`
 ### 🤖 Jira Chat Assistant – Help Menu
 
