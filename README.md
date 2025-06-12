@@ -1,3 +1,135 @@
+# 📌 Salesforce Low-Level Design (LLD) Generation Instructions
+
+## ✅ When to Use
+Use this instruction to generate a **Low-Level Design** for a Salesforce requirement **only after**:
+- User story is finalized and refined
+- High-Level Design (HLD) is confirmed
+- Design options and architecture decisions are completed
+
+---
+
+## 🎯 Objective
+To produce a **detailed, component-wise technical design** that includes:
+- Concrete class/component logic
+- Data model and integration structures
+- Tasks breakdown for each component
+
+---
+
+## 🧩 Output Structure
+
+### I. 📘 Overview
+- **Story Reference**: User Story ID or Title
+- **Business Objective**: Short summary of what the story aims to achieve
+- **Assumptions / Constraints**: Known inputs, system constraints, or rules
+
+---
+
+### II. 🏗️ Component-Level Design Details
+
+For each component involved in the design, include:
+
+#### 1. Apex Classes / Triggers
+- **Component Name**
+- **Type**: Trigger / Batch / Helper / Service / Controller
+- **Purpose**
+- **Input / Output SObjects or Parameters**
+- **Methods with Signature and Logic**
+- **Bulk Handling Strategy**
+- **Exception Handling Strategy**
+- **Dependencies**: External classes, flows, config
+
+#### 2. Lightning Web Components (LWC)
+- **Component Name**
+- **Template Breakdown**: (Sections, Inputs, Outputs)
+- **JS Controller**: Methods, Wire, Apex Calls
+- **Events**: Custom events, event handling
+- **Usage Context**: Where it will be placed
+
+#### 3. Flow / Subflow / Flow Orchestration
+- **Flow Name**
+- **Type**: Screen / Auto-launched
+- **Triggering Condition**
+- **Key Steps**: Decisions, Assignments, Subflows
+- **Custom Invocable Apex Used**
+- **Fault Path Handling**
+
+#### 4. Custom Metadata / Settings
+- **Metadata Type and Name**
+- **Fields and Purpose**
+- **How/Where Used in Logic**
+
+#### 5. Custom Object / Field Model
+- **Object Name**
+- **Field List**: Name, API Name, Type, Purpose
+- **Relationships**: Lookup / Master-Detail
+- **Validation Rules / Triggers**
+
+#### 6. External Integrations
+- **Integration Name**
+- **Named Credential / Auth**
+- **Request Format**
+- **Response Format**
+- **Timeouts / Retry Strategy**
+
+---
+
+### III. 🔒 Cross-Cutting Concerns
+- **Security Enforcement**: FLS, CRUD, Sharing
+- **Governor Limits Handling**
+- **Transaction Control**
+- **Error Logging Strategy**
+- **Test Coverage Plan**
+
+---
+
+### IV. 🔨 Task Breakdown for Implementation
+
+For each component or functionality, provide a breakdown like:
+
+| Task ID | Task Description                           | Component        | Type     | Est. Effort | Priority | Dependency |
+|---------|---------------------------------------------|------------------|----------|-------------|----------|------------|
+| T1      | Create Apex Service `EnrichmentEngine`      | Apex Class       | Backend  | 2 Days      | High     | -          |
+| T2      | Build LWC `EnrichmentConfigEditor`          | LWC Component    | Frontend | 3 Days      | Medium   | T1         |
+| T3      | Define Flow `RunEnrichmentOnInsert`         | Flow             | Logic    | 1 Day       | High     | T1         |
+| T4      | Create Custom Metadata `Rule_Config__mdt`   | Metadata         | Config   | 0.5 Day     | High     | -          |
+| T5      | Implement Test Class for `EnrichmentEngine` | Apex Test Class  | Test     | 1 Day       | High     | T1         |
+
+Each task should include:
+- Task Description
+- Linked Component
+- Type (Backend, Frontend, Flow, Config, Integration, Test)
+- Estimated Effort
+- Dependencies (if any)
+
+---
+
+## 📥 Required Inputs
+To generate this LLD:
+- Finalized User Story and Acceptance Criteria
+- High-Level Design Summary
+- Any available object models or API specs
+- Sample metadata/configs (if applicable)
+- Known reusable components or constraints
+
+---
+
+## 📤 Output Format
+- Markdown or HTML
+- Clearly sectioned using headings
+- Task breakdown in tabular format
+- Include only relevant components (omit empty sections)
+
+---
+
+## ⚠️ Notes
+- Keep implementation-specific; avoid repeating HLD concepts unless needed
+- Be concise but precise in each section
+- Use Salesforce-specific terminology (e.g., Named Credentials, SOQL, FLS)
+
+---
+
+
 # Instructions: Generate High Level Design Document for Salesforce
 
 ## Role
